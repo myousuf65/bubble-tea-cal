@@ -21,7 +21,6 @@ type model struct {
 }
 
 func getfileinfo(month string, day int) string {
-
 	// user home directory
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -33,6 +32,15 @@ func getfileinfo(month string, day int) string {
 
 	// full file path
 	return filepath.Join(home, "journal", month, filename)
+}
+
+func checkDayExists(allDaysInMonth []string, day int) bool{
+	for _, v := range allDaysInMonth {
+		if strconv.Itoa(day) == v {
+			return true
+		}
+	}
+	return false
 }
 
 func InitialModel() model {
@@ -123,23 +131,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "esc":
 				m.showinputfield = false
 
+				// get input content
 				content := m.inputfield.Value()
 
-				// home directory
-				home, err := os.UserHomeDir()
-				if err != nil {
-					panic(err)
-				}
-
-				// filename
-				filename := strconv.Itoa(m.activeDate) + ".txt"
-
-				// dir
-				filePath := filepath.Join(home, "journal", m.activeMonth, filename)
-
 				// write to system
+				filePath := getfileinfo(m.activeMonth, m.activeDate)
 				os.WriteFile(filePath, []byte(content), 0644)
 
+				// reset text area
 				m.inputfield.SetValue("")
 
 				return m, nil
@@ -149,6 +148,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 
+	var temp int
 	switch msg := msg.(type) {
 
 	case tea.KeyMsg:
@@ -156,16 +156,29 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch key {
 
 		case "left":
-			m.activeDate--
+			temp = m.activeDate - 1
+			if checkDayExists(m.dates[m.activeMonth], temp) {
+				m.activeDate = temp
+			}
 
 		case "right":
-			m.activeDate++
+			temp = m.activeDate + 1
+			if checkDayExists(m.dates[m.activeMonth], temp) {
+				m.activeDate = temp
+			}
 
 		case "up":
-			m.activeDate -= 7
+			temp = m.activeDate - 7 
+			if checkDayExists(m.dates[m.activeMonth], temp) {
+				m.activeDate = temp
+			}
 
 		case "down":
-			m.activeDate += 7
+			temp = m.activeDate + 7 
+			if checkDayExists(m.dates[m.activeMonth], temp) {
+				m.activeDate = temp
+			}
+
 		case "a":
 
 			// append previous entry
@@ -227,7 +240,7 @@ func (m model) View() string {
 		if err != nil {
 			output.WriteString("\nno entry")
 		} else {
-			output.WriteString(string(content))
+			output.WriteString("\n\n" + string(content))
 		}
 
 		return output.String()
