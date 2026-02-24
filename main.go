@@ -1,41 +1,84 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
 
-	textinput "github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 type model struct {
-	questions     []string
-	inputField    textinput.Model
-	currentActive int
-	answers       []string
+	dates       map[string][]string
+	activeDate  int
+	activeMonth string
 }
 
-func InitialModel() model{
+func InitialModel() model {
 
-	questions := []string {
-		"what is your name",
-		"what is your age",
-		"what do u do ",
-	}
+	m := make(map[string][]string)
 
-	t := textinput.New()
-	t.Placeholder = "type something"
-	t.Focus()
+	m["January"] = []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+		"11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+		"21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31"}
+
+	m["February"] = []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+		"11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+		"21", "22", "23", "24", "25", "26", "27", "28"}
+
+	m["March"] = []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+		"11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+		"21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31"}
+
+	m["April"] = []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+		"11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+		"21", "22", "23", "24", "25", "26", "27", "28", "29", "30"}
+
+	m["May"] = []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+		"11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+		"21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31"}
+
+	m["June"] = []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+		"11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+		"21", "22", "23", "24", "25", "26", "27", "28", "29", "30"}
+
+	m["July"] = []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+		"11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+		"21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31"}
+
+	m["August"] = []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+		"11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+		"21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31"}
+
+	m["September"] = []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+		"11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+		"21", "22", "23", "24", "25", "26", "27", "28", "29", "30"}
+
+	m["October"] = []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+		"11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+		"21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31"}
+
+	m["November"] = []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+		"11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+		"21", "22", "23", "24", "25", "26", "27", "28", "29", "30"}
+
+	m["December"] = []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+		"11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+		"21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31"}
+
+	// get todays date
+	day := time.Now().Day()
+	month := time.Now().Month()
 
 	return model{
-		questions: questions,
-		inputField: t,
-		answers: []string{},
-		currentActive: 0,
+		dates:       m,
+		activeDate:  day,
+		activeMonth: month.String(),
 	}
 }
-
 
 func (m model) Init() tea.Cmd {
 	return nil
@@ -43,56 +86,84 @@ func (m model) Init() tea.Cmd {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
-	switch msg := msg.(type){
-	case tea.KeyMsg:
-		switch msg.String(){
-		case "ctrl+c":
-			return m, tea.Quit
-		case "q":
-			return m, tea.Quit
-		case "enter":
-			m.answers = append(m.answers, m.inputField.Value())
-			m.inputField.SetValue("")
-			m.currentActive++
+	switch msg := msg.(type) {
 
-			// check last question
-			if m.currentActive >= len(m.questions){
-				return m, nil
-			}
+	case tea.KeyMsg:
+		key := msg.String()
+		switch key {
+
+		case "left":
+			m.activeDate--
+			return m, nil
+
+		case "right":
+			m.activeDate++
+			return m, nil
+
+		case "up":
+			m.activeDate -= 7
+			return m, nil
+
+		case "down":
+			m.activeDate += 7
+			return m, nil
+
+		case "ctrl+c", "q":
+			return m, tea.Quit
 		}
 	}
-
-	var cmd tea.Cmd
-	m.inputField,cmd  = m.inputField.Update(msg)
-
-	return m, cmd
+	return m, nil
 }
 
 func (m model) View() string {
 
-
-	var temp bytes.Buffer
-
-	if m.currentActive >= len(m.questions){
-		// show all answers
-		for i := range m.questions {
-			line := fmt.Sprintf(
-				"%s: %s\n",
-				m.questions[i],
-				m.answers[i],
-			)
-			temp.WriteString(line)
-		}
-
-		temp.WriteString("\nPress q to quit.")
-		return temp.String()
+	// user home directory
+	home, err := os.UserHomeDir()
+	if err != nil {
+		panic(err)
 	}
 
-	q := m.questions[m.currentActive]
-	return fmt.Sprintf("%s\n\n%s\n ", q , m.inputField.View())
-	
-}
+	// filename
+	filename := strconv.Itoa(m.activeDate) + ".txt"
 
+	// directory
+	filePath := filepath.Join(home, "journal", m.activeMonth, filename)
+
+
+	
+
+	var output strings.Builder
+	output.WriteString("currentActive: " + strconv.Itoa(m.activeDate) + "\n")
+	counter := 0
+	// ------------current month ----------------
+	for _, v := range m.dates[m.activeMonth] {
+		s_v, _ := strconv.Atoi(v)
+
+		if s_v == m.activeDate {
+			output.WriteString(fmt.Sprintf("[%2s] ", v))
+		} else {
+			output.WriteString(fmt.Sprintf(" %2s  ", v))
+		}
+
+		counter++
+
+		if counter == 7 {
+			counter = 0
+			output.WriteString("\n")
+		}
+	}
+
+	//read file
+	content, err  := os.ReadFile(filePath)
+	if err != nil {
+		output.WriteString("\nno entry")
+	}else{
+		output.WriteString(string(content))
+
+	}
+
+	return output.String()
+}
 
 func main() {
 
