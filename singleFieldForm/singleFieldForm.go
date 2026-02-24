@@ -16,9 +16,9 @@ type model struct {
 	answers       []string
 }
 
-func InitialModel() model{
+func InitialModel() model {
 
-	questions := []string {
+	questions := []string{
 		"what is your name",
 		"what is your age",
 		"what do u do ",
@@ -29,13 +29,12 @@ func InitialModel() model{
 	t.Focus()
 
 	return model{
-		questions: questions,
-		inputField: t,
-		answers: []string{},
+		questions:     questions,
+		inputField:    t,
+		answers:       []string{},
 		currentActive: 0,
 	}
 }
-
 
 func (m model) Init() tea.Cmd {
 	return nil
@@ -43,9 +42,9 @@ func (m model) Init() tea.Cmd {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
-	switch msg := msg.(type){
+	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String(){
+		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
 		case "q":
@@ -56,24 +55,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.currentActive++
 
 			// check last question
-			if m.currentActive >= len(m.questions){
+			if m.currentActive >= len(m.questions) {
 				return m, nil
 			}
 		}
 	}
 
 	var cmd tea.Cmd
-	m.inputField,cmd  = m.inputField.Update(msg)
+	m.inputField, cmd = m.inputField.Update(msg)
 
 	return m, cmd
 }
 
 func (m model) View() string {
 
-
 	var temp bytes.Buffer
 
-	if m.currentActive >= len(m.questions){
+	if m.currentActive >= len(m.questions) {
 		// show all answers
 		for i := range m.questions {
 			line := fmt.Sprintf(
@@ -89,10 +87,9 @@ func (m model) View() string {
 	}
 
 	q := m.questions[m.currentActive]
-	return fmt.Sprintf("%s\n\n%s\n ", q , m.inputField.View())
-	
-}
+	return fmt.Sprintf("%s\n\n%s\n ", q, m.inputField.View())
 
+}
 
 func main() {
 

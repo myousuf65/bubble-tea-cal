@@ -8,13 +8,31 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 type model struct {
-	dates       map[string][]string
-	activeDate  int
-	activeMonth string
+	dates          map[string][]string
+	activeDate     int
+	activeMonth    string
+	inputfield     textarea.Model
+	showinputfield bool
+}
+
+func getfileinfo(month string, day int) string {
+
+	// user home directory
+	home, err := os.UserHomeDir()
+	if err != nil {
+		panic(err)
+	}
+
+	// filename
+	filename := strconv.Itoa(day) + ".txt"
+
+	// full file path
+	return filepath.Join(home, "journal", month, filename)
 }
 
 func InitialModel() model {
@@ -73,10 +91,18 @@ func InitialModel() model {
 	day := time.Now().Day()
 	month := time.Now().Month()
 
+	inputfield := textarea.New()
+	inputfield.Focus()
+	inputfield.Placeholder = "how's your day going"
+	inputfield.SetWidth(40)
+	inputfield.SetHeight(40)
+
 	return model{
-		dates:       m,
-		activeDate:  day,
-		activeMonth: month.String(),
+		dates:          m,
+		activeDate:     day,
+		activeMonth:    month.String(),
+		inputfield:     inputfield,
+		showinputfield: false,
 	}
 }
 
@@ -86,6 +112,43 @@ func (m model) Init() tea.Cmd {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
+	// when text editor is open all keys should be directed there
+	if m.showinputfield {
+		var cmd tea.Cmd
+		m.inputfield, cmd = m.inputfield.Update(msg)
+
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "esc":
+				m.showinputfield = false
+
+				content := m.inputfield.Value()
+
+				// home directory
+				home, err := os.UserHomeDir()
+				if err != nil {
+					panic(err)
+				}
+
+				// filename
+				filename := strconv.Itoa(m.activeDate) + ".txt"
+
+				// dir
+				filePath := filepath.Join(home, "journal", m.activeMonth, filename)
+
+				// write to system
+				os.WriteFile(filePath, []byte(content), 0644)
+
+				m.inputfield.SetValue("")
+
+				return m, nil
+			}
+		}
+
+		return m, cmd
+	}
+
 	switch msg := msg.(type) {
 
 	case tea.KeyMsg:
@@ -94,75 +157,82 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "left":
 			m.activeDate--
-			return m, nil
 
 		case "right":
 			m.activeDate++
-			return m, nil
 
 		case "up":
 			m.activeDate -= 7
-			return m, nil
 
 		case "down":
 			m.activeDate += 7
-			return m, nil
+		case "a":
+
+			// append previous entry
+			filePath := getfileinfo(m.activeMonth, m.activeDate)
+			content, err := os.ReadFile(filePath)
+
+			if err != nil {
+				// file does not exit
+			}else{
+				// file exists
+				m.inputfield.SetValue(string(content))
+			}
+
+			m.showinputfield = true
 
 		case "ctrl+c", "q":
 			return m, tea.Quit
 		}
 	}
+
 	return m, nil
+
 }
 
 func (m model) View() string {
 
-	// user home directory
-	home, err := os.UserHomeDir()
-	if err != nil {
-		panic(err)
-	}
+	// read file content
+	filePath := getfileinfo(m.activeMonth, m.activeDate)
+	content, err := os.ReadFile(filePath)
 
-	// filename
-	filename := strconv.Itoa(m.activeDate) + ".txt"
+	if m.showinputfield {
 
-	// directory
-	filePath := filepath.Join(home, "journal", m.activeMonth, filename)
+		return fmt.Sprintf("%s\n\n ", m.inputfield.View())
 
+	} else {
 
-	
+		var output strings.Builder
+		output.WriteString("currentActive: " + strconv.Itoa(m.activeDate) + "\n")
+		counter := 0
+		// ------------current month ----------------
+		for _, v := range m.dates[m.activeMonth] {
+			s_v, _ := strconv.Atoi(v)
 
-	var output strings.Builder
-	output.WriteString("currentActive: " + strconv.Itoa(m.activeDate) + "\n")
-	counter := 0
-	// ------------current month ----------------
-	for _, v := range m.dates[m.activeMonth] {
-		s_v, _ := strconv.Atoi(v)
+			if s_v == m.activeDate {
+				output.WriteString(fmt.Sprintf("[%2s] ", v))
+			} else {
+				output.WriteString(fmt.Sprintf(" %2s  ", v))
+			}
 
-		if s_v == m.activeDate {
-			output.WriteString(fmt.Sprintf("[%2s] ", v))
+			counter++
+
+			if counter == 7 {
+				counter = 0
+				output.WriteString("\n")
+			}
+		}
+
+		//read file
+		if err != nil {
+			output.WriteString("\nno entry")
 		} else {
-			output.WriteString(fmt.Sprintf(" %2s  ", v))
+			output.WriteString(string(content))
 		}
 
-		counter++
-
-		if counter == 7 {
-			counter = 0
-			output.WriteString("\n")
-		}
+		return output.String()
 	}
 
-	//read file
-	content, err  := os.ReadFile(filePath)
-	if err != nil {
-		output.WriteString("\nno entry")
-	}else{
-		output.WriteString(string(content))
-
-	}
-
-	return output.String()
 }
 
 func main() {
