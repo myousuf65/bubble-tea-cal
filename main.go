@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -18,7 +20,15 @@ type model struct {
 	activeMonth    string
 	inputfield     textarea.Model
 	showinputfield bool
+	monthOrder     []string
 }
+
+type Change int
+
+const (
+	Decrease Change = 0
+	Increase Change = 1
+)
 
 func getfileinfo(month string, day int) string {
 	// user home directory
@@ -34,13 +44,28 @@ func getfileinfo(month string, day int) string {
 	return filepath.Join(home, "journal", month, filename)
 }
 
-func checkDayExists(allDaysInMonth []string, day int) bool{
-	for _, v := range allDaysInMonth {
-		if strconv.Itoa(day) == v {
-			return true
+func checkMonthChange(allDaysInMonth []string, day int, change Change) bool {
+	idx := slices.Index(allDaysInMonth, strconv.Itoa(day))
+
+	changeMonth := false
+
+	// increase month
+	if change == Increase {
+		if idx == len(allDaysInMonth)-1 || idx == -1 {
+			changeMonth = true
 		}
 	}
-	return false
+
+	//decrease month
+	if change == Decrease {
+		if idx == 0 || idx == -1 {
+			changeMonth = true
+		}
+	}
+
+	log.Println("changeMonth : ", changeMonth , " idx: ", idx )
+
+	return changeMonth
 }
 
 func InitialModel() model {
@@ -105,12 +130,15 @@ func InitialModel() model {
 	inputfield.SetWidth(40)
 	inputfield.SetHeight(40)
 
+	monthOrder := []string{"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"}
+
 	return model{
 		dates:          m,
 		activeDate:     day,
 		activeMonth:    month.String(),
 		inputfield:     inputfield,
 		showinputfield: false,
+		monthOrder:     monthOrder,
 	}
 }
 
@@ -148,7 +176,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 
-	var temp int
+	// var temp int
 	switch msg := msg.(type) {
 
 	case tea.KeyMsg:
@@ -156,27 +184,86 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch key {
 
 		case "left":
-			temp = m.activeDate - 1
-			if checkDayExists(m.dates[m.activeMonth], temp) {
-				m.activeDate = temp
-			}
+			shouldChangeMonth := checkMonthChange(m.dates[m.activeMonth], m.activeDate, Decrease)
 
+			if shouldChangeMonth && m.activeMonth != "January" {
+				idx := slices.Index(m.monthOrder, m.activeMonth)
+				m.activeMonth = m.monthOrder[idx-1]
+				// date should be last day of month
+				daysInMonth := m.dates[m.activeMonth]
+				lastDay := daysInMonth[len(daysInMonth)-1]
+				lastDayInt, _ := strconv.ParseInt(lastDay, 10, 64)
+				m.activeDate = int(lastDayInt)
+
+			} else {
+				if m.activeDate == 1 && m.activeMonth == "January" {
+					break
+				} else {
+					m.activeDate--
+				}
+			}
 		case "right":
-			temp = m.activeDate + 1
-			if checkDayExists(m.dates[m.activeMonth], temp) {
-				m.activeDate = temp
+
+			shouldChangeMonth := checkMonthChange(m.dates[m.activeMonth], m.activeDate, Increase)
+
+			if shouldChangeMonth && m.activeMonth != "December" {
+				idx := slices.Index(m.monthOrder, m.activeMonth)
+				m.activeMonth = m.monthOrder[idx+1]
+
+				// date should be first day of month
+				daysInMonth := m.dates[m.activeMonth]
+				firstDay := daysInMonth[0]
+				firstDayInt, _ := strconv.ParseInt(firstDay, 10, 64)
+				m.activeDate = int(firstDayInt)
+
+			} else {
+				if m.activeDate == 31 && m.activeMonth == "December" {
+					break
+				} else {
+					m.activeDate++
+				}
 			}
 
 		case "up":
-			temp = m.activeDate - 7 
-			if checkDayExists(m.dates[m.activeMonth], temp) {
-				m.activeDate = temp
-			}
+			shouldChangeMonth := checkMonthChange(m.dates[m.activeMonth], m.activeDate, Decrease)
 
+			log.Println("change: ", shouldChangeMonth)
+
+			if shouldChangeMonth && m.activeMonth != "January" {
+				idx := slices.Index(m.monthOrder, m.activeMonth)
+				m.activeMonth = m.monthOrder[idx-1]
+				// date should be last day of month
+				daysInMonth := m.dates[m.activeMonth]
+				lastDay := daysInMonth[len(daysInMonth)-1]
+				lastDayInt, _ := strconv.ParseInt(lastDay, 10, 64)
+				m.activeDate = int(lastDayInt)
+
+			} else {
+				if m.activeDate == 1 && m.activeMonth == "January" {
+					break
+				} else {
+					m.activeDate = m.activeDate - 7
+				}
+			}
 		case "down":
-			temp = m.activeDate + 7 
-			if checkDayExists(m.dates[m.activeMonth], temp) {
-				m.activeDate = temp
+			shouldChangeMonth := checkMonthChange(m.dates[m.activeMonth], m.activeDate, Increase)
+
+			if shouldChangeMonth && m.activeMonth != "December" {
+				idx := slices.Index(m.monthOrder, m.activeMonth)
+				m.activeMonth = m.monthOrder[idx+1]
+
+				// date should be first day of month
+				daysInMonth := m.dates[m.activeMonth]
+				firstDay := daysInMonth[0]
+				firstDayInt, _ := strconv.ParseInt(firstDay, 10, 64)
+				m.activeDate = int(firstDayInt)
+
+			} else {
+				if m.activeDate == 31 && m.activeMonth == "December" {
+					break
+				} else {
+					m.activeDate = m.activeDate + 7
+				}
 			}
 
 		case "a":
@@ -187,7 +274,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			if err != nil {
 				// file does not exit
-			}else{
+			} else {
 				// file exists
 				m.inputfield.SetValue(string(content))
 			}
@@ -216,7 +303,9 @@ func (m model) View() string {
 	} else {
 
 		var output strings.Builder
-		output.WriteString("currentActive: " + strconv.Itoa(m.activeDate) + "\n")
+		output.WriteString("Day: " + strconv.Itoa(m.activeDate) + "\n")
+		output.WriteString("Month: " + m.activeMonth + "\n")
+
 		counter := 0
 		// ------------current month ----------------
 		for _, v := range m.dates[m.activeMonth] {
@@ -249,10 +338,22 @@ func (m model) View() string {
 }
 
 func main() {
+	file, err := os.OpenFile("app.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatal("Failed to open log file:", err)
+	}
+	defer file.Close()
 
+	// Set the log output to the file
+	log.SetOutput(file)
+
+	log.Println("Application started at ", time.Now())
+
+	// new bubbletea program
 	p := tea.NewProgram(InitialModel())
 	if _, err := p.Run(); err != nil {
-		fmt.Printf("Alas, there's been an error: %v", err)
+		log.Printf("Alas, there's been an error: %v", err)
 		os.Exit(1)
 	}
+
 }
