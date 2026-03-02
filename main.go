@@ -63,7 +63,7 @@ func checkMonthChange(allDaysInMonth []string, day int, change Change) bool {
 		}
 	}
 
-	log.Println("changeMonth : ", changeMonth , " idx: ", idx )
+	log.Println("changeMonth : ", changeMonth, " idx: ", idx)
 
 	return changeMonth
 }
@@ -127,8 +127,6 @@ func InitialModel() model {
 	inputfield := textarea.New()
 	inputfield.Focus()
 	inputfield.Placeholder = "how's your day going"
-	inputfield.SetWidth(40)
-	inputfield.SetHeight(40)
 
 	monthOrder := []string{"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"}
 
@@ -164,6 +162,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				// write to system
 				filePath := getfileinfo(m.activeMonth, m.activeDate)
+
+				os.MkdirAll(filepath.Dir(filePath), 0755)
+
 				os.WriteFile(filePath, []byte(content), 0644)
 
 				// reset text area
@@ -176,7 +177,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 
-	// var temp int
 	switch msg := msg.(type) {
 
 	case tea.KeyMsg:
@@ -225,9 +225,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "up":
-			shouldChangeMonth := checkMonthChange(m.dates[m.activeMonth], m.activeDate, Decrease)
 
-			log.Println("change: ", shouldChangeMonth)
+			nextValue := m.activeDate - 7
+			shouldChangeMonth := false
+			idx := slices.Index(m.dates[m.activeMonth], strconv.Itoa(nextValue))
+
+			if idx == 0 || idx == -1 {
+				shouldChangeMonth = true
+			}
+
+			log.Println("changeMonth : ", shouldChangeMonth, " idx: ", idx)
 
 			if shouldChangeMonth && m.activeMonth != "January" {
 				idx := slices.Index(m.monthOrder, m.activeMonth)
@@ -238,15 +245,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				lastDayInt, _ := strconv.ParseInt(lastDay, 10, 64)
 				m.activeDate = int(lastDayInt)
 
+			} else if idx == -1 && m.activeMonth == "January" {
+				break
 			} else {
-				if m.activeDate == 1 && m.activeMonth == "January" {
-					break
-				} else {
-					m.activeDate = m.activeDate - 7
-				}
+				m.activeDate = m.activeDate - 7
 			}
+
 		case "down":
-			shouldChangeMonth := checkMonthChange(m.dates[m.activeMonth], m.activeDate, Increase)
+			nextValue := m.activeDate + 7
+			shouldChangeMonth := false
+			idx := slices.Index(m.dates[m.activeMonth], strconv.Itoa(nextValue))
+
+			if idx == 0 || idx == -1 {
+				shouldChangeMonth = true
+			}
+
+			log.Println("changeMonth : ", shouldChangeMonth, " idx: ", idx)
 
 			if shouldChangeMonth && m.activeMonth != "December" {
 				idx := slices.Index(m.monthOrder, m.activeMonth)
@@ -258,12 +272,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				firstDayInt, _ := strconv.ParseInt(firstDay, 10, 64)
 				m.activeDate = int(firstDayInt)
 
+			} else if idx == -1 && m.activeMonth == "December" {
+				break
 			} else {
-				if m.activeDate == 31 && m.activeMonth == "December" {
-					break
-				} else {
-					m.activeDate = m.activeDate + 7
-				}
+				m.activeDate = m.activeDate + 7
 			}
 
 		case "a":
@@ -274,6 +286,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			if err != nil {
 				// file does not exit
+				log.Println("filepath not exist : " + filePath)
 			} else {
 				// file exists
 				m.inputfield.SetValue(string(content))
@@ -284,6 +297,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			return m, tea.Quit
 		}
+	case tea.WindowSizeMsg:
+		m.inputfield.SetHeight(msg.Height - 2)
+		m.inputfield.SetWidth(msg.Width)
+		log.Println("Height: " + strconv.Itoa(msg.Height) + "\tWidth: " + strconv.Itoa(msg.Width))
+
 	}
 
 	return m, nil
@@ -338,6 +356,7 @@ func (m model) View() string {
 }
 
 func main() {
+
 	file, err := os.OpenFile("app.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatal("Failed to open log file:", err)
