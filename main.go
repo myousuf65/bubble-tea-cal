@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	lipgloss "charm.land/lipgloss/v2"
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -308,51 +309,73 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 }
 
-func (m model) View() string {
+var (
+	headerStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#FF75B5"))
 
-	// read file content
+	// Active/selected date
+	activeDateStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#FFFFFF")).
+			Background(lipgloss.Color("#7B61FF")).
+			Padding(0, 1)
+
+	// Normal date
+	normalDateStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#888888")).
+			Padding(0, 1)
+
+	// Journal content
+	contentStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#7B61FF")).
+		// Padding(1, 2).
+		MarginTop(1)
+
+	// No entry message
+	emptyStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#555555")).
+			Italic(true)
+)
+
+func (m model) View() string {
 	filePath := getfileinfo(m.activeMonth, m.activeDate)
 	content, err := os.ReadFile(filePath)
 
 	if m.showinputfield {
-
 		return fmt.Sprintf("%s\n\n ", m.inputfield.View())
-
-	} else {
-
-		var output strings.Builder
-		output.WriteString("Day: " + strconv.Itoa(m.activeDate) + "\n")
-		output.WriteString("Month: " + m.activeMonth + "\n")
-
-		counter := 0
-		// ------------current month ----------------
-		for _, v := range m.dates[m.activeMonth] {
-			s_v, _ := strconv.Atoi(v)
-
-			if s_v == m.activeDate {
-				output.WriteString(fmt.Sprintf("[%2s] ", v))
-			} else {
-				output.WriteString(fmt.Sprintf(" %2s  ", v))
-			}
-
-			counter++
-
-			if counter == 7 {
-				counter = 0
-				output.WriteString("\n")
-			}
-		}
-
-		//read file
-		if err != nil {
-			output.WriteString("\nno entry")
-		} else {
-			output.WriteString("\n\n" + string(content))
-		}
-
-		return output.String()
 	}
 
+	var output strings.Builder
+
+	// Styled header
+	output.WriteString(headerStyle.Render("Day: "+strconv.Itoa(m.activeDate)) + "\n")
+	output.WriteString(headerStyle.Render("Month: "+m.activeMonth) + "\n\n")
+
+	counter := 0
+	for _, v := range m.dates[m.activeMonth] {
+		s_v, _ := strconv.Atoi(v)
+		if s_v == m.activeDate {
+			output.WriteString(activeDateStyle.Render(fmt.Sprintf("%2s", v)))
+		} else {
+			output.WriteString(normalDateStyle.Render(fmt.Sprintf("%2s", v)))
+		}
+		counter++
+		if counter == 7 {
+			counter = 0
+			output.WriteString("\n")
+		}
+	}
+
+	// Styled content area
+	if err != nil {
+		output.WriteString("\n" + emptyStyle.Render("no entry"))
+	} else {
+		output.WriteString("\n" + contentStyle.Render(string(content)))
+	}
+
+	return output.String()
 }
 
 func main() {
